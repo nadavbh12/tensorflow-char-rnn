@@ -11,7 +11,8 @@ from char_rnn_model import *
 
 TF_VERSION = int(tf.__version__.split('.')[1])
 
-def main():
+
+def main(args):
     parser = argparse.ArgumentParser()
 
     # Data and vocabulary file
@@ -64,13 +65,18 @@ def main():
                         help='initial learning rate')
     parser.add_argument('--decay_rate', type=float, default=0.95,
                         help='decay rate')
+    parser.add_argument('--opt_algorithm', type=str, default='adam',
+                        help='which optimizing algoritm to use (adam, sgd, rmsprop)')
 
     # Parameters for logging.
     parser.add_argument('--log_to_file', dest='log_to_file', action='store_true',
                         help=('whether the experiment log is stored in a file under'
                               '  output_dir or printed at stdout.'))
     parser.set_defaults(log_to_file=False)
-    
+
+    parser.add_argument('--save_best_only', dest='save_best_only', action='store_true',
+                        help=('save the best model only'))
+
     parser.add_argument('--progress_freq', type=int,
                         default=100,
                         help=('frequency for progress report in training'
@@ -106,8 +112,9 @@ def main():
                         help=('use the first 1000 character to as data'
                               ' to test the implementation'))
     parser.set_defaults(test=False)
-    
-    args = parser.parse_args()
+
+    print args
+    args = parser.parse_args(args)
 
     # Specifying location to store model, best model and tensorboard log.
     args.save_model = os.path.join(args.output_dir, 'save_model/model')
@@ -172,6 +179,8 @@ def main():
                   'embedding_size': args.embedding_size,
                   'num_layers': args.num_layers,
                   'learning_rate': args.learning_rate,
+                  'decay_rate': args.decay_rate,
+                  'opt_algorithm' : args.opt_algorithm,
                   'model': args.model,
                   'dropout': args.dropout,
                   'input_dropout': args.input_dropout}
@@ -290,10 +299,11 @@ def main():
                 train_writer.add_summary(train_summary_str, global_step)
                 train_writer.flush()
                 # save model
-                saved_path = saver.save(session, args.save_model,
-                                                    global_step=train_model.global_step)
-                logging.info('Latest model saved in %s\n', saved_path)
-                logging.info('Evaluate on validation set')
+                if not args.save_best_only:
+                    saved_path = saver.save(session, args.save_model,
+                                                        global_step=train_model.global_step)
+                    logging.info('Latest model saved in %s\n', saved_path)
+                    logging.info('Evaluate on validation set')
 
                 # valid_ppl, valid_summary_str, _ = valid_model.run_epoch(
                 valid_ppl, valid_summary_str, _ = valid_model.run_epoch(
@@ -368,6 +378,9 @@ def load_vocab(vocab_file, encoding):
 def save_vocab(vocab_index_dict, vocab_file, encoding):
     with codecs.open(vocab_file, 'w', encoding=encoding) as f:
         json.dump(vocab_index_dict, f, indent=2, sort_keys=True)
-        
+
+def run(args):
+    main(args)
+
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])

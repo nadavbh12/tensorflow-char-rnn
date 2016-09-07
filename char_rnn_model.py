@@ -11,7 +11,7 @@ class CharRNN(object):
   
   def __init__(self, is_training, batch_size, num_unrollings, vocab_size, 
                hidden_size, max_grad_norm, embedding_size, num_layers,
-               learning_rate, model, dropout=0.0, input_dropout=0.0, use_batch=True):
+               learning_rate, model, decay_rate, opt_algorithm, dropout=0.0, input_dropout=0.0, use_batch=True):
     self.batch_size = batch_size
     self.num_unrollings = num_unrollings
     if not use_batch:
@@ -23,6 +23,7 @@ class CharRNN(object):
     self.num_layers = num_layers
     self.embedding_size = embedding_size
     self.model = model
+    self.opt_algorithm = opt_algorithm
     self.dropout = dropout
     self.input_dropout = input_dropout
     if embedding_size <= 0:
@@ -39,7 +40,7 @@ class CharRNN(object):
                        # multilayer lstm parameters for extra layers.
                        (num_layers - 1) * 4 * hidden_size *
                        (hidden_size + hidden_size + 1))
-    # self.decay_rate = decay_rate
+    self.decay_rate = decay_rate
 
     # Placeholder to feed in input and targets/labels data.
     self.input_data = tf.placeholder(tf.int64,
@@ -169,9 +170,14 @@ class CharRNN(object):
       tvars = tf.trainable_variables()
       grads, _ = tf.clip_by_global_norm(tf.gradients(self.mean_loss, tvars),
                                         self.max_grad_norm)
-      # optimizer = tf.train.GradientDescentOptimizer(learning_rate)
-      # optimizer = tf.train.RMSPropOptimizer(learning_rate, decay_rate)
-      optimizer = tf.train.AdamOptimizer(self.learning_rate)
+
+
+      if self.opt_algorithm == 'adam':
+        optimizer = tf.train.AdamOptimizer(self.learning_rate)
+      elif self.opt_algorithm == 'sgd':
+        optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
+      elif self.opt_algorithm == 'rmsprop':
+        optimizer = tf.train.RMSPropOptimizer(self.learning_rate, decay_rate)
 
       self.train_op = optimizer.apply_gradients(zip(grads, tvars),
                                                 global_step=self.global_step)
@@ -191,9 +197,9 @@ class CharRNN(object):
         logging.info('batch_size: %d', self.batch_size)
 
     if is_training:
-      extra_op = self.train_op
+        extra_op = self.train_op
     else:
-      extra_op = tf.no_op()
+        extra_op = tf.no_op()
 
     # Prepare initial state and reset the average loss
     # computation.
@@ -228,7 +234,7 @@ class CharRNN(object):
     return ppl, summary_str, global_step
 
   def sample_seq(self, session, length, start_text, vocab_index_dict,
-                 index_vocab_dict, temperature=1.0, max_prob=True):
+                    index_vocab_dict, temperature=1.0, max_prob=True):
 
     state = self.zero_state.eval()
 
@@ -262,7 +268,44 @@ class CharRNN(object):
       seq.append(id2char(sample, index_vocab_dict))
       x = np.array([[sample]])
     return ''.join(seq)
-      
+
+  def sample_bar(self, session, start_text, vocab_index_dict,
+                    index_vocab_dict, temperature=1.0, max_prob=True):
+
+    state = self.zero_state.eval()
+
+    # use start_text to warm up the RNN.
+    if start_text is not None and len(start_text) > 0:
+      seq = list(start_text)
+      for char in start_text[:-1]:
+        x = np.array([[char2id(char, vocab_index_dict)]])
+        state = session.run(self.final_state,
+                            {self.input_data: x,
+                             self.initial_state: state})
+      x = np.array([[char2id(start_text[-1], vocab_index_dict)]])
+    else:
+      vocab_size = len(vocab_index_dict.keys())
+      x = np.array([[np.random.randint(0, vocab_size)]])
+      seq = []
+
+    while True:
+      state, logits = session.run([self.final_state,
+                                   self.logits],
+                                  {self.input_data: x,
+                                   self.initial_state: state})
+      unnormalized_probs = np.exp((logits - np.max(logits)) / temperature)
+      probs = unnormalized_probs / np.sum(unnormalized_probs)
+
+      if max_prob:
+        sample = np.argmax(probs[0])
+      else:
+        sample = np.random.choice(self.vocab_size, 1, p=probs[0])[0]
+
+      seq.append(id2char(sample, index_vocab_dict))
+      x = np.array([[sample]])
+      if seq[-1] == '@':
+          break
+    return ''.join(seq)
         
 class BatchGenerator(object):
     """Generate and hold batches."""

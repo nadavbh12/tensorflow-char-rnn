@@ -1,13 +1,13 @@
 import argparse
-import codecs
 import json
 import os
 
-import numpy as np
 from char_rnn_model import *
+from jazz.checkMeasure import get_measure_score
 from train import load_vocab
 
-def main():
+
+def main(args):
     parser = argparse.ArgumentParser()
     
     # Parameters for using saved best models.
@@ -30,9 +30,8 @@ def main():
                         default='',
                         help='the text to start with')
 
-    parser.add_argument('--length', type=int,
-                        default=100,
-                        help='length of sampled sequence')
+    parser.add_argument('--chords_file', type=str, default='chords/12_bar_blues_twice.txt',
+            help='File containing the bar progression')
 
     parser.add_argument('--seed', type=int,
                         default=-1,
@@ -52,7 +51,7 @@ def main():
                         help='show debug information')
     parser.set_defaults(debug=False)
     
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     # Prepare parameters.
     with open(os.path.join(args.init_dir, 'result.json'), 'r') as f:
@@ -75,28 +74,41 @@ def main():
             test_model = CharRNN(is_training=False, use_batch=False, **params)
             saver = tf.train.Saver(name='checkpoint_saver')
 
-    if args.evaluate:
-        example_batches = BatchGenerator(args.example_text, 1, 1, vocab_size,
-                                         vocab_index_dict, index_vocab_dict)
-        with tf.Session(graph=graph) as session:
+
+    # Read Chords
+    f = file(args.chords_file, 'r')
+    chords_strings = f.read().split(' ')
+
+    if args.seed >= 0:
+        np.random.seed(args.seed)
+    # Sampling a sequence
+    sample=args.start_text
+    num_chords = 10
+    with tf.Session(graph=graph) as session:
+        for c in chords_strings:
+            bars = [None] * num_chords
+            bar_scores = [None] * num_chords
+
             saver.restore(session, best_model)
-            ppl = test_model.run_epoch(session, len(args.example_text),
-                                        example_batches,
-                                        is_training=False)[0]
-            print('Example text is: %s' % args.example_text)
-            print('Perplexity is: %s' % ppl)
-    else:
-        if args.seed >= 0:
-            np.random.seed(args.seed)
-        # Sampling a sequence 
-        with tf.Session(graph=graph) as session:
-            saver.restore(session, best_model)
-            sample = test_model.sample_seq(session, args.length, args.start_text,
-                                            vocab_index_dict, index_vocab_dict,
-                                            temperature=args.temperature,
-                                            max_prob=args.max_prob)
-            print(sample)
-        return sample
+            for i in range(num_chords):
+                bar = test_model.sample_bar(session, sample,
+                                                vocab_index_dict, index_vocab_dict,
+                                                temperature=args.temperature,
+                                                max_prob=args.max_prob)
+                bars[i] = bar.split('@')[-2]
+                try:
+                    bar_score = get_measure_score(bars[i], c)
+                except:
+                    continue
+                bar_scores[i] = bar_score
+                # print "bar_score= " + str(bar_score)
+
+                best_bar = bars[np.argmax(bar_scores)]
+            sample += best_bar + '@'
+
+    print(sample)
+    return sample
 
 if __name__ == '__main__':
-    main()
+    import sys
+    main(sys.argv[1:])
