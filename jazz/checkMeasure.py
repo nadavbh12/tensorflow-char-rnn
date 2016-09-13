@@ -60,9 +60,7 @@ def get_measure_score(krn_stream, chord_string):
     chord = music21.harmony.ChordSymbol(chord_string)
 
     wrapped_input = "**kern\n" + "*M4/4\n" + "*^\n" + krn_stream + "\n==\n*-"
-    # print wrapped_input
     m = music21.converter.parse(wrapped_input)
-    #     catch music21.humdrum.spineParser.HumdrumException
 
     rests_only = (len(m.pitches) == 0)
     if rests_only or (m.highestTime > 4.0 or not m.isWellFormedNotation()):

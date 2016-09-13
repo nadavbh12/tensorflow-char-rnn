@@ -97,6 +97,9 @@ def main(args):
     parser.add_argument('--best_valid_ppl', type=float,
                         default=np.Inf,
                         help=('current valid perplexity'))
+    parser.add_argument('--min_valid_ppl', type=float,
+                        default=np.Inf,
+                        help=('Minimum valid perplexity after the first iteration'))
     
     # Parameters for using saved best models.
     parser.add_argument('--init_dir', type=str, default='',
@@ -325,7 +328,8 @@ def main(args):
                 valid_writer.flush()
                 logging.info('Best model is saved in %s', best_model)
                 logging.info('Best validation ppl is %f\n', best_valid_ppl)
-                result['latest_model'] = saved_path
+                if not args.save_best_only:
+                    result['latest_model'] = saved_path
                 result['best_model'] = best_model
                 # Convert to float because numpy.float is not json serializable.
                 result['best_valid_ppl'] = float(best_valid_ppl)
@@ -334,8 +338,11 @@ def main(args):
                     os.remove(result_path)
                 with open(result_path, 'w') as f:
                     json.dump(result, f, indent=2, sort_keys=True)
+                if args.min_valid_ppl < best_valid_ppl:
+                    break
 
-            logging.info('Latest model is saved in %s', saved_path)
+            if not args.save_best_only:
+                logging.info('Latest model is saved in %s', saved_path)
             logging.info('Best model is saved in %s', best_model)
             logging.info('Best validation ppl is %f\n', best_valid_ppl)
             logging.info('Evaluate the best model on test set')

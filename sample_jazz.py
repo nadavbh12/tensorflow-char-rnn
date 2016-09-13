@@ -30,7 +30,7 @@ def main(args):
                         default='',
                         help='the text to start with')
 
-    parser.add_argument('--chords_file', type=str, default='chords/12_bar_blues_twice.txt',
+    parser.add_argument('--chords_file', type=str, default='chords/12_bar_blues.txt',
             help='File containing the bar progression')
 
     parser.add_argument('--seed', type=int,
