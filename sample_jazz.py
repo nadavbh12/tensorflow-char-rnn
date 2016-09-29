@@ -20,7 +20,10 @@ def main(args):
                         help=('Temperature for sampling from softmax: '
                               'higher temperature, more random; '
                               'lower temperature, more greedy.'))
-    
+    parser.add_argument('--bar_temperature', type=float,
+                        default=1.0,
+                        help=('Temperature for sampling from softmax of bar generation'))
+
     parser.add_argument('--max_prob', dest='max_prob', action='store_true',
                         help='always pick the most probable next character in sampling')
 
@@ -99,11 +102,15 @@ def main(args):
                 try:
                     bar_score = get_measure_score(bars[i], c)
                 except:
+                    bar_scores[i] = 0
                     continue
-                bar_scores[i] = bar_score
-                # print "bar_score= " + str(bar_score)
 
-                best_bar = bars[np.argmax(bar_scores)]
+                bar_scores[i] = bar_score
+
+                unnormalized_probs = np.exp((bar_scores - np.max(bar_scores)) / args.bar_temperature)
+                probs = unnormalized_probs / np.sum(unnormalized_probs)
+                best_bar = np.random.choice(probs.size, 1, p=probs[0])[0]
+                # best_bar = bars[np.argmax(bar_scores)]
             sample += best_bar + '@'
 
     print(sample)
