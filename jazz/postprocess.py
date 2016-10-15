@@ -53,7 +53,7 @@ def add_header_and_footer(kern):
 *staff1
 *I"Alto Sax.
 *clefG2
-*k[b-]
+*k[]
 *M4/4
 """
     trailer = """==

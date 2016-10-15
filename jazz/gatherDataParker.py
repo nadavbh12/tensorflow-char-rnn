@@ -57,14 +57,52 @@ vocab = {'aa'   : unichr(0x87),
          '0.333984': '12',
          }
 
+reverse_vocab = { unichr(0x87) : 'aa'  ,
+                  unichr(0x88) : 'aaa' ,
+                  unichr(0x89) : 'aaaa',
+                  unichr(0x8a) : 'bb'  ,
+                  unichr(0x8b) : 'bbb' ,
+                  unichr(0x8c) : 'bbbb',
+                  unichr(0x8d) : 'cc'  ,
+                  unichr(0x8e) : 'ccc' ,
+                  unichr(0x8f) : 'cccc',
+                  unichr(0x90) : 'dd'  ,
+                  unichr(0x91) : 'ddd' ,
+                  unichr(0x92) : 'dddd',
+                  unichr(0x93) : 'ee'  ,
+                  unichr(0x94) : 'eee' ,
+                  unichr(0x95) : 'eeee',
+                  unichr(0x96) : 'ff'  ,
+                  unichr(0x97) : 'fff' ,
+                  unichr(0x98) : 'ffff',
+                  unichr(0x99) : 'gg'  ,
+                  unichr(0x9a) : 'ggg' ,
+                  unichr(0x9b) : 'gggg',
+                  unichr(0x9c) : '12'  ,
+                  unichr(0x9d) : '16'  ,
+                  unichr(0x9e) : '20'  ,
+                  unichr(0x9f) : '24'  ,
+                  unichr(0x9f) : '28'  ,
+                  unichr(0xa0) : '32'  ,
+                  unichr(0xa0) : '36'  ,
+                  unichr(0xa1) : '40'  ,
+                  unichr(0xa2) : '48'  ,
+                  unichr(0xa3) : '64'  ,
+                  unichr(0xa4) : '72'  ,
+                  unichr(0xa5) : '96'  ,
+                  unichr(0xa6) : '128' ,
+                  }
+
 def removeHeader(lines):
     found_first = False
+    j = 0
     for i in range(len(lines)):
+        j = i
         if not lines[i].startswith("*") and found_first == True:
             break
         if lines[i].startswith("="):
             found_first = True
-    return lines[i:]
+    return lines[j:]
         
 def removeTrailer(lines):
     for i in range(len(lines)-1, -1, -1):

@@ -3,7 +3,8 @@ import json
 import os
 
 from char_rnn_model import *
-from jazz.checkMeasure import get_measure_score
+from jazz.checkMeasure import get_measure_score3
+from jazz.checkMeasure import replaceVocab
 from train import load_vocab
 
 
@@ -86,10 +87,12 @@ def main(args):
         np.random.seed(args.seed)
     # Sampling a sequence
     sample=args.start_text
+    sample_processed = replaceVocab(sample)
     num_chords = 10
     with tf.Session(graph=graph) as session:
         for c in chords_strings:
             bars = [None] * num_chords
+            bars_proccessed = [None] * num_chords
             bar_scores = [None] * num_chords
 
             saver.restore(session, best_model)
@@ -99,22 +102,29 @@ def main(args):
                                                 temperature=args.temperature,
                                                 max_prob=args.max_prob)
                 bars[i] = bar.split('@')[-2]
+                bars_proccessed[i] = replaceVocab(bars[i])
                 try:
-                    bar_score = get_measure_score(bars[i], c)
+                    if ',' in c:
+                        cs = c.split(',')
+                        bar_score = get_measure_score3(bars_proccessed[i], cs[0], cs[1])
+                    else:
+                        bar_score = get_measure_score3(bars_proccessed[i], c, c)
                 except:
                     bar_scores[i] = 0
                     continue
 
                 bar_scores[i] = bar_score
 
-                unnormalized_probs = np.exp((bar_scores - np.max(bar_scores)) / args.bar_temperature)
-                probs = unnormalized_probs / np.sum(unnormalized_probs)
-                best_bar = np.random.choice(probs.size, 1, p=probs[0])[0]
-                # best_bar = bars[np.argmax(bar_scores)]
+            unnormalized_probs = np.multiply(np.sign(bar_scores), np.exp((bar_scores - np.max(bar_scores)) / args.bar_temperature))
+            probs = unnormalized_probs / np.sum(unnormalized_probs)
+            best_bar_idx = np.random.choice(probs.size, 1, p=probs)
+            best_bar = bars[best_bar_idx[0]]
+            best_bar_proccessed = bars_proccessed[best_bar_idx[0]]
             sample += best_bar + '@'
+            sample_processed += best_bar_proccessed + '@'
 
-    print(sample)
-    return sample
+    print(sample_processed)
+    return sample_processed
 
 if __name__ == '__main__':
     import sys
